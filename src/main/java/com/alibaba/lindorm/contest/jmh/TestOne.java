@@ -1,5 +1,6 @@
 package com.alibaba.lindorm.contest.jmh;
 
+import static com.alibaba.lindorm.contest.Serialization.deserialize;
 import static com.alibaba.lindorm.contest.Serialization.serialize;
 
 import java.io.ByteArrayOutputStream;
@@ -36,6 +37,7 @@ public class TestOne {
         for (int i = 0; i < 10; i++) {
             engine.upsert(request());
         }
+        System.out.println(engine.getCache().getQueue().size());
         engine.shutdown();
 
 
@@ -61,10 +63,18 @@ public class TestOne {
 //
 //        fileChannel.write(buffer, fileChannel.size());
 
-        RealWriteReq req = new RealWriteReq();
-        req.setCrc(11);
-        req.setValueOffset(123);
-        System.out.println(Arrays.toString(serialize(req)));
+//        RealWriteReq req = new RealWriteReq();
+//
+//        byte[] str = "azh ttt".getBytes();
+//        req.setCrc(11);
+//        req.setValueOffset(123);
+//        System.out.println(Arrays.toString(serialize(req)));
+//        System.out.println(deserialize(serialize(req)));
+//        AsynchronousFileChannel fileChannel =
+//                AsynchronousFileChannel.open(Path.of("zzh"), StandardOpenOption.WRITE, StandardOpenOption.READ,
+//                        StandardOpenOption.CREATE);
+//
+//        fileChannel.write(ByteBuffer.wrap(str), fileChannel.size());
     }
 
     private static WriteRequest request() {
@@ -78,7 +88,7 @@ public class TestOne {
         columns.put("col3", new ColumnValue.StringColumn(buffer));
         String str = "12345678912345678";
         ArrayList<Row> rowList = new ArrayList<>();
-        rowList.add(new Row(new Vin(str.getBytes(StandardCharsets.UTF_8)), 1, columns));
+        rowList.add(new Row(new Vin(str.getBytes(StandardCharsets.UTF_8)), System.currentTimeMillis(), columns));
         return new WriteRequest("test", rowList);
     }
 }

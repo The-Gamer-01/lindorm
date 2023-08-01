@@ -1,11 +1,9 @@
 package com.alibaba.lindorm.contest;
 
 import static com.alibaba.lindorm.contest.Serialization.serialize;
-import static com.alibaba.lindorm.contest.common.MoreRunnables.supplyWithFailSafe;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.CompletionHandler;
@@ -20,7 +18,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import com.alibaba.lindorm.contest.common.MoreSupplizers;
-import com.alibaba.lindorm.contest.structs.WriteRequest;
 import com.alibaba.lindorm.contest.util.RealWriteReq;
 
 /**
@@ -48,7 +45,7 @@ public final class AioCache {
         this.queue = new LinkedBlockingQueue<>();
         vinPosMap = new ConcurrentHashMap<>();
         columnPosMap = new ConcurrentHashMap<>();
-//        taskMoreSupplizers.get().execute(this::flushFromQueue);
+        //        taskMoreSupplizers.get().execute(this::flushFromQueue);
         try {
             Path channelPath =
                     Path.of(path.toString() + File.separator + path.toString() + "_" + System.currentTimeMillis());
@@ -67,13 +64,19 @@ public final class AioCache {
         }
     }
 
-    private void flushFromQueue()  {
+    public List<RealWriteReq> read() {
+        return null;
+    }
+
+    private void flushFromQueue() {
         try {
             if (!fileChannel.isOpen() || queue.peek() == null) {
                 System.out.println("fileChanel is null");
                 return;
             }
             List<RealWriteReq> request = queue.poll();
+
+            System.out.println("request: " + request.size());
 
             ByteBuffer flushBuf = ByteBuffer.allocate(serialize(request).length);
             request.forEach(it -> {
@@ -107,12 +110,13 @@ public final class AioCache {
                     buffer.putInt(it.getCrc());
                     buffer.putInt(fileOffset);
                     buffer.putLong(it.getTs());
-                    buffer.putInt(vinOffset);
-                    buffer.putInt(keyOffset);
-                    buffer.putInt(valueOffset);
+                    buffer.putInt(vinLen);
+                    buffer.putInt(keyLen);
+                    buffer.putInt(valueLen);
                     buffer.put(key);
                     buffer.put(it.getValueType());
                     buffer.put(value);
+                    System.out.println("buffer: "+Arrays.toString(buffer.array()));
                     flushBuf.put(buffer);
                     fileOffset = valueOffset;
                 } catch (IOException e) {
@@ -120,6 +124,7 @@ public final class AioCache {
                 }
             });
             flushBuf.flip();
+            System.out.println("flushBuf: " +Arrays.toString(flushBuf.array()));
 
 //            fileChannel.write(flushBuf, fileOffset);
             fileChannel.write(flushBuf, fileOffset, flushBuf, new CompletionHandler<Integer, ByteBuffer>() {
@@ -135,7 +140,7 @@ public final class AioCache {
                     // 写入失败
                 }
             });
-        } catch (IOException e)  {
+        } catch (IOException e) {
             // todo 日志处理
             e.printStackTrace();
         }
@@ -149,7 +154,7 @@ public final class AioCache {
         flushFromQueue();
     }
 
-//    private int writeRequestLen(WriteRequest request) {
-//        int len = request.getTableName().getBytes().length;
-//    }
+    //    private int writeRequestLen(WriteRequest request) {
+    //        int len = request.getTableName().getBytes().length;
+    //    }
 }

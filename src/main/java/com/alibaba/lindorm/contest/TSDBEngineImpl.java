@@ -85,7 +85,6 @@ public class TSDBEngineImpl extends TSDBEngine {
 
     @Override
     public void upsert(WriteRequest wReq) throws IOException {
-
         cache.put(getRealWriteReq(wReq));
     }
 
