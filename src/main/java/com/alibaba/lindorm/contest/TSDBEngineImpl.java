@@ -7,6 +7,7 @@
 
 package com.alibaba.lindorm.contest;
 
+
 import static com.alibaba.lindorm.contest.common.MoreRunnables.runOnceSilently;
 import static com.alibaba.lindorm.contest.common.Preconditions.checkFileState;
 
@@ -14,6 +15,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 
+import com.alibaba.lindorm.contest.common.MoreSupplizers;
 import com.alibaba.lindorm.contest.structs.LatestQueryRequest;
 import com.alibaba.lindorm.contest.structs.Row;
 import com.alibaba.lindorm.contest.structs.Schema;
@@ -27,6 +29,8 @@ public class TSDBEngineImpl extends TSDBEngine {
     private static final String INDEX_SUFFIX = ".json";
 
     private static boolean isConnected = false;
+
+    private AioCache cache;
 
     /**
      * This constructor's function signature should not be modified.
@@ -45,14 +49,12 @@ public class TSDBEngineImpl extends TSDBEngine {
         if (dataPath == null) {
             throw new IOException("The current database does not exist.");
         }
-        //        File dataFile = new File(dataPath, dataSegmentPath);
-        if (dataPath.exists()) {
-            // todo 从文件加载数据构建索引
-            isConnected = true;
-            return;
+        if (!dataPath.exists()) {
+            checkFileState(dataPath.mkdir(), "Description Failed to execute createNewFile.");
         }
-        // 否则就创建文件
-        checkFileState(dataPath.mkdir(), "Description Failed to execute createNewFile.");
+        // todo 从文件加载数据构建索引
+        isConnected = true;
+        cache = new AioCache(dataPath.toPath());
     }
 
     @Override
@@ -69,6 +71,8 @@ public class TSDBEngineImpl extends TSDBEngine {
         if (!isConnected) {
             return;
         }
+        // 调试用
+//        cache.flush();
         runOnceSilently(() -> {
             // todo 强制刷盘 优雅停机
             isConnected = false;
@@ -78,7 +82,7 @@ public class TSDBEngineImpl extends TSDBEngine {
 
     @Override
     public void upsert(WriteRequest wReq) throws IOException {
-
+        cache.put(wReq);
     }
 
     @Override
@@ -89,5 +93,9 @@ public class TSDBEngineImpl extends TSDBEngine {
     @Override
     public ArrayList<Row> executeTimeRangeQuery(TimeRangeQueryRequest trReadReq) throws IOException {
         return null;
+    }
+
+    public AioCache getCache() {
+        return cache;
     }
 }

@@ -38,4 +38,20 @@ public class MoreRunnables {
             }
         };
     }
+
+    public static <R> void runOnceSilentlyFailSafe(Supplier<R> run, Supplier<R> runWithFailedGotSafe) {
+        try {
+            run.get();
+        } catch (Exception e) {
+            runWithFailedGotSafe.get();
+        }
+    }
+
+    public static <R> R supplyWithFailSafe(Supplier<R> run, Supplier<R> runWithFailedGotSafe) {
+        try {
+            return run.get();
+        } catch (Exception e) {
+            return runWithFailedGotSafe.get();
+        }
+    }
 }
