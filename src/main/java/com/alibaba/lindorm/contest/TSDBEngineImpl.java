@@ -13,7 +13,9 @@ import static com.alibaba.lindorm.contest.common.Preconditions.checkFileState;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.List;
 
 import com.alibaba.lindorm.contest.common.MoreSupplizers;
 import com.alibaba.lindorm.contest.structs.LatestQueryRequest;
@@ -21,6 +23,7 @@ import com.alibaba.lindorm.contest.structs.Row;
 import com.alibaba.lindorm.contest.structs.Schema;
 import com.alibaba.lindorm.contest.structs.TimeRangeQueryRequest;
 import com.alibaba.lindorm.contest.structs.WriteRequest;
+import com.alibaba.lindorm.contest.util.RealWriteReq;
 
 public class TSDBEngineImpl extends TSDBEngine {
 
@@ -72,7 +75,7 @@ public class TSDBEngineImpl extends TSDBEngine {
             return;
         }
         // 调试用
-//        cache.flush();
+        cache.flush();
         runOnceSilently(() -> {
             // todo 强制刷盘 优雅停机
             isConnected = false;
@@ -82,7 +85,8 @@ public class TSDBEngineImpl extends TSDBEngine {
 
     @Override
     public void upsert(WriteRequest wReq) throws IOException {
-        cache.put(wReq);
+
+        cache.put(getRealWriteReq(wReq));
     }
 
     @Override
@@ -97,5 +101,36 @@ public class TSDBEngineImpl extends TSDBEngine {
 
     public AioCache getCache() {
         return cache;
+    }
+
+    private List<RealWriteReq> getRealWriteReq(WriteRequest wReq) {
+        List<RealWriteReq> list = new ArrayList<>();
+        wReq.getRows().forEach(row -> {
+            row.getColumns().forEach((k, v) -> {
+                RealWriteReq req = new RealWriteReq();
+                req.setTs(row.getTimestamp());
+                req.setVin(row.getVin().getVin());
+                req.setKey(k.getBytes());
+                req.setValueType(v.getColumnType().name().getBytes());
+                switch (v.getColumnType()) {
+                    case COLUMN_TYPE_STRING:
+                        req.setValue(v.getStringValue().array());
+                        break;
+                    case COLUMN_TYPE_INTEGER:
+                        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+                        buffer.putInt(v.getIntegerValue());
+                        req.setValue(buffer.array());
+                        break;
+                    case COLUMN_TYPE_DOUBLE_FLOAT:
+                        ByteBuffer buffer2 = ByteBuffer.allocate(Double.BYTES);
+                        buffer2.putDouble(v.getDoubleFloatValue());
+                        req.setValue(buffer2.array());
+                        break;
+                }
+                list.add(req);
+            });
+
+        });
+        return list;
     }
 }

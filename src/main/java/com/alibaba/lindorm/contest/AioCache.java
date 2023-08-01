@@ -11,7 +11,9 @@ import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,6 +21,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import com.alibaba.lindorm.contest.common.MoreSupplizers;
 import com.alibaba.lindorm.contest.structs.WriteRequest;
+import com.alibaba.lindorm.contest.util.RealWriteReq;
 
 /**
  * @author zhaozhenhang <zhaozhenhang@kuaishou.com>
@@ -26,7 +29,7 @@ import com.alibaba.lindorm.contest.structs.WriteRequest;
  */
 public final class AioCache {
 
-    private LinkedBlockingQueue<WriteRequest> queue;
+    private LinkedBlockingQueue<List<RealWriteReq>> queue;
     private AsynchronousFileChannel fileChannel;
 
     // key: vin, value: pos
@@ -45,7 +48,7 @@ public final class AioCache {
         this.queue = new LinkedBlockingQueue<>();
         vinPosMap = new ConcurrentHashMap<>();
         columnPosMap = new ConcurrentHashMap<>();
-        taskMoreSupplizers.get().execute(this::flushFromQueue);
+//        taskMoreSupplizers.get().execute(this::flushFromQueue);
         try {
             Path channelPath =
                     Path.of(path.toString() + File.separator + path.toString() + "_" + System.currentTimeMillis());
@@ -56,7 +59,7 @@ public final class AioCache {
         }
     }
 
-    public void put(WriteRequest data) {
+    public void put(List<RealWriteReq> data) {
         try {
             queue.put(data); // 将数据放入队列
         } catch (InterruptedException e) {
@@ -70,80 +73,75 @@ public final class AioCache {
                 System.out.println("fileChanel is null");
                 return;
             }
-            WriteRequest request = queue.poll();
+            List<RealWriteReq> request = queue.poll();
+
             ByteBuffer flushBuf = ByteBuffer.allocate(serialize(request).length);
-            request.getRows().forEach(it -> {
+            request.forEach(it -> {
                 try {
                     // todo ts需要后续做索引，查最新ts
-                    long ts = it.getTimestamp();
+                    long ts = it.getTs();
 
                     // 构造vin索引
-                    String vin = String.valueOf(it.getVin());
+                    String vin = Arrays.toString(it.getVin());
                     Set<Integer> vinOffsetSet = vinPosMap.getOrDefault(vin, new HashSet<>());
                     int vinLen = serialize(it.getVin()).length;
                     int vinOffset = vinLen + fileOffset;
                     vinOffsetSet.add(fileOffset);
                     vinPosMap.put(vin, vinOffsetSet);
 
+                    byte[] key = it.getKey();
+                    byte[] value = it.getValue();
 
-                    it.getColumns().forEach((k, v) -> {
-                        try {
-                            // 添加column索引
-                            Set<Integer> columnOffsetSet = columnPosMap.getOrDefault(k, new HashSet<>());
-                            columnOffsetSet.add(fileOffset);
-                            columnPosMap.put(k, columnOffsetSet);
+                    Set<Integer> columnOffsetSet =
+                            columnPosMap.getOrDefault(Arrays.toString(key), new HashSet<>());
+                    // 添加column索引
+                    columnOffsetSet.add(fileOffset);
+                    columnPosMap.put(Arrays.toString(key), columnOffsetSet);
 
-                            int keyLen = serialize(k).length;
-                            int keyOffset = keyLen + vinOffset;
-                            int valueLen = serialize(v).length;
-                            int valueOffset = valueLen + keyOffset;
+                    int keyLen = key.length;
+                    int keyOffset = keyLen + vinOffset;
+                    int valueLen = value.length;
+                    int valueOffset = valueLen + keyOffset;
 
-                            //  存储字节数据
-                            ByteBuffer buffer = ByteBuffer.allocate(28 + vinLen + keyLen + valueLen);
-                            buffer.putInt(1);
-                            buffer.putInt(fileOffset);
-                            buffer.putLong(ts);
-                            buffer.putInt(vinOffset);
-                            buffer.putInt(keyOffset);
-                            buffer.putInt(valueOffset);
-                            buffer.put(k.getBytes());
-                            buffer.put(String.valueOf(v.getColumnType()).getBytes());
-                            buffer.put(v.getStringValue());
-                            flushBuf.put(buffer);
-
-                            fileOffset = valueOffset;
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    });
+                    ByteBuffer buffer = ByteBuffer.allocate(28 + vinLen + keyLen + valueLen);
+                    buffer.putInt(it.getCrc());
+                    buffer.putInt(fileOffset);
+                    buffer.putLong(it.getTs());
+                    buffer.putInt(vinOffset);
+                    buffer.putInt(keyOffset);
+                    buffer.putInt(valueOffset);
+                    buffer.put(key);
+                    buffer.put(it.getValueType());
+                    buffer.put(value);
+                    flushBuf.put(buffer);
+                    fileOffset = valueOffset;
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             });
-            System.out.println("azh");
             flushBuf.flip();
-            System.out.println("flushBuf: "+flushBuf.position());
-            fileChannel.write(flushBuf, fileOffset);
-//            fileChannel.write(flushBuf, fileOffset, flushBuf, new CompletionHandler<Integer, ByteBuffer>() {
-//                @Override
-//                public void completed(Integer result, ByteBuffer attachment) {
-//                    if (queue.peek() != null) {
-//                        flushFromQueue();
-//                    }
-//                }
-//
-//                @Override
-//                public void failed(Throwable exc, ByteBuffer attachment) {
-//                    // 写入失败
-//                }
-//            });
+
+//            fileChannel.write(flushBuf, fileOffset);
+            fileChannel.write(flushBuf, fileOffset, flushBuf, new CompletionHandler<Integer, ByteBuffer>() {
+                @Override
+                public void completed(Integer result, ByteBuffer attachment) {
+                    if (queue.peek() != null) {
+                        flushFromQueue();
+                    }
+                }
+
+                @Override
+                public void failed(Throwable exc, ByteBuffer attachment) {
+                    // 写入失败
+                }
+            });
         } catch (IOException e)  {
             // todo 日志处理
             e.printStackTrace();
         }
     }
 
-    public LinkedBlockingQueue<WriteRequest> getQueue() {
+    public LinkedBlockingQueue<List<RealWriteReq>> getQueue() {
         return queue;
     }
 

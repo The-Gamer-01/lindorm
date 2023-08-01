@@ -1,5 +1,8 @@
 package com.alibaba.lindorm.contest.jmh;
 
+import static com.alibaba.lindorm.contest.Serialization.serialize;
+
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousFileChannel;
@@ -7,14 +10,18 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+
+import org.apache.commons.lang3.SerializationUtils;
 
 import com.alibaba.lindorm.contest.TSDBEngineImpl;
 import com.alibaba.lindorm.contest.structs.ColumnValue;
 import com.alibaba.lindorm.contest.structs.Row;
 import com.alibaba.lindorm.contest.structs.Vin;
 import com.alibaba.lindorm.contest.structs.WriteRequest;
+import com.alibaba.lindorm.contest.util.RealWriteReq;
 
 /**
  * @author zhaozhenhang <zhaozhenhang@kuaishou.com>
@@ -32,6 +39,14 @@ public class TestOne {
         engine.shutdown();
 
 
+
+//        Fury fury = Fury.builder()
+//                .withLanguage(Language.JAVA)
+//                .build();
+//
+//        fury.serialize(request());
+
+
 //        byte[] stringBytes = "data".getBytes(StandardCharsets.UTF_8);
 //        ByteBuffer buffer = ByteBuffer.allocate(stringBytes.length);
 //        // 向缓冲区写入数据
@@ -46,6 +61,10 @@ public class TestOne {
 //
 //        fileChannel.write(buffer, fileChannel.size());
 
+        RealWriteReq req = new RealWriteReq();
+        req.setCrc(11);
+        req.setValueOffset(123);
+        System.out.println(Arrays.toString(serialize(req)));
     }
 
     private static WriteRequest request() {
