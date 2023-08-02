@@ -11,4 +11,8 @@ public interface FileManager {
     void write(byte[] value);
 
     void read(byte[] key);
+
+    void close();
+
+    void init();
 }
