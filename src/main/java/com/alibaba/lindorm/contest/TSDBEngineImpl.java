@@ -14,6 +14,7 @@ import static com.alibaba.lindorm.contest.common.Preconditions.checkFileState;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -102,27 +103,29 @@ public class TSDBEngineImpl extends TSDBEngine {
         return cache;
     }
 
-    private List<RealWriteReq> getRealWriteReq(WriteRequest wReq) {
+    public static List<RealWriteReq> getRealWriteReq(WriteRequest wReq) {
         List<RealWriteReq> list = new ArrayList<>();
         wReq.getRows().forEach(row -> {
             row.getColumns().forEach((k, v) -> {
                 RealWriteReq req = new RealWriteReq();
                 req.setTs(row.getTimestamp());
                 req.setVin(row.getVin().getVin());
-                req.setKey(k.getBytes());
-                req.setValueType(v.getColumnType().name().getBytes());
+                req.setKey(k.getBytes(StandardCharsets.UTF_8));
+                req.setValueType(v.getColumnType().name().getBytes(StandardCharsets.UTF_8));
                 switch (v.getColumnType()) {
                     case COLUMN_TYPE_STRING:
                         req.setValue(v.getStringValue().array());
                         break;
                     case COLUMN_TYPE_INTEGER:
-                        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
-                        buffer.putInt(v.getIntegerValue());
+                        byte[] data = String.valueOf(v.getIntegerValue()).getBytes();
+                        ByteBuffer buffer = ByteBuffer.allocate(data.length);
+                        buffer.put(data);
                         req.setValue(buffer.array());
                         break;
                     case COLUMN_TYPE_DOUBLE_FLOAT:
-                        ByteBuffer buffer2 = ByteBuffer.allocate(Double.BYTES);
-                        buffer2.putDouble(v.getDoubleFloatValue());
+                        byte[] data2 = String.valueOf(v.getDoubleFloatValue()).getBytes();
+                        ByteBuffer buffer2 = ByteBuffer.allocate(data2.length);
+                        buffer2.put(data2);
                         req.setValue(buffer2.array());
                         break;
                 }

@@ -5,8 +5,12 @@ import static com.alibaba.lindorm.contest.Serialization.serialize;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.CompletionHandler;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
@@ -76,18 +80,15 @@ public final class AioCache {
             }
             List<RealWriteReq> request = queue.poll();
 
-            System.out.println("request: " + request.size());
-
             ByteBuffer flushBuf = ByteBuffer.allocate(serialize(request).length);
             request.forEach(it -> {
-                try {
                     // todo ts需要后续做索引，查最新ts
                     long ts = it.getTs();
 
                     // 构造vin索引
                     String vin = Arrays.toString(it.getVin());
                     Set<Integer> vinOffsetSet = vinPosMap.getOrDefault(vin, new HashSet<>());
-                    int vinLen = serialize(it.getVin()).length;
+                    int vinLen = vin.getBytes(StandardCharsets.UTF_8).length;
                     int vinOffset = vinLen + fileOffset;
                     vinOffsetSet.add(fileOffset);
                     vinPosMap.put(vin, vinOffsetSet);
@@ -106,22 +107,21 @@ public final class AioCache {
                     int valueLen = value.length;
                     int valueOffset = valueLen + keyOffset;
 
-                    ByteBuffer buffer = ByteBuffer.allocate(28 + vinLen + keyLen + valueLen);
+                    ByteBuffer buffer = ByteBuffer.allocate(28 + vinLen + keyLen + it.getValueType().length + valueLen + 1000);
                     buffer.putInt(it.getCrc());
                     buffer.putInt(fileOffset);
                     buffer.putLong(it.getTs());
                     buffer.putInt(vinLen);
                     buffer.putInt(keyLen);
                     buffer.putInt(valueLen);
+                    buffer.put(vin.getBytes(StandardCharsets.UTF_8));
                     buffer.put(key);
                     buffer.put(it.getValueType());
                     buffer.put(value);
-                    System.out.println("buffer: "+Arrays.toString(buffer.array()));
+//                    System.out.println("decoder buffer: "+decoder(buffer));
+                    buffer.flip();
                     flushBuf.put(buffer);
                     fileOffset = valueOffset;
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
             });
             flushBuf.flip();
             System.out.println("flushBuf: " +Arrays.toString(flushBuf.array()));
@@ -152,6 +152,19 @@ public final class AioCache {
 
     public void flush() {
         flushFromQueue();
+    }
+
+    private String decoder(ByteBuffer buffer) {
+        try {
+            Charset charset = StandardCharsets.UTF_8;
+            CharsetDecoder decoder = charset.newDecoder();
+            buffer.flip();
+            CharBuffer buffer1 = decoder.decode(buffer);
+            return buffer1.toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "xx";
     }
 
     //    private int writeRequestLen(WriteRequest request) {
