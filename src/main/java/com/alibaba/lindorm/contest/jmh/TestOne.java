@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Future;
 
-import org.apache.commons.lang3.SerializationUtils;
 
 import com.alibaba.lindorm.contest.TSDBEngineImpl;
 import com.alibaba.lindorm.contest.structs.ColumnValue;

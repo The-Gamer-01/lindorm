@@ -1,18 +1,18 @@
 package com.alibaba.lindorm.contest;
 
+import java.io.IOException;
+
 /**
  * @author zhaozhenhang <zhaozhenhang@kuaishou.com>
  * Created on 2023-08-02
  */
 public interface FileManager {
 
-    void write(byte[] key, byte[] value);
+    void write(byte[] key, byte[] value) throws IOException;
 
-    void write(byte[] value);
-
-    void read(byte[] key);
+    byte[] read(byte[] key, long offset) throws IOException;
 
     void close();
 
-    void init();
+    void init(String path) throws IOException;
 }
