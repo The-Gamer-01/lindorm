@@ -1,11 +1,17 @@
 package com.alibaba.lindorm.contest.jmh;
 
 import static com.alibaba.lindorm.contest.common.HighBitPartitioner.getPartition;
+import static com.alibaba.lindorm.contest.common.NumberUtils.bytesToLong;
+import static com.alibaba.lindorm.contest.common.NumberUtils.longTobytes;
+import static java.util.Optional.of;
+import static java.util.Optional.ofNullable;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.List;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
@@ -31,37 +37,14 @@ import com.alibaba.lindorm.contest.storage.FileStorage;
 public class TestTwo {
 
     public static void main(String[] args) throws Exception {
-//        String filePath = "mmap_file";
-//        long currentSize = "data".getBytes().length; // 当前文件大小，需获取或记录
-//
-//        try (RandomAccessFile file = new RandomAccessFile(filePath, "rw");
-//                FileChannel channel = file.getChannel()) {
-//
-//            // 计算要追加数据的位置和大小
-//            long appendedSize = "data".getBytes().length/* 计算要追加的数据大小 */;
-//            long position = currentSize; // 追加的起始位置
-//
-//            // 映射文件部分内容到内存
-//            MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_WRITE, position, appendedSize);
-//
-//            // 在映射的内存中写入要追加的数据
-//            /* 将要追加的数据写入 buffer */
-//            buffer.put("data".getBytes());
-//
-//            // 刷新缓冲区
-//            buffer.force();
-//
-//            // 更新当前文件大小
-//            currentSize += appendedSize;
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
 //        test1();
-        Options opt = new OptionsBuilder()
-                .include(TestTwo.class.getSimpleName())
-                .build();
-        new Runner(opt).run();
+//        Options opt = new OptionsBuilder()
+//                .include(TestTwo.class.getSimpleName())
+//                .build();
+//        new Runner(opt).run();
 //        System.out.println("value1".getBytes().length);
+
+        test();
     }
 
     FileStorage storage = new FileStorage();
@@ -79,5 +62,31 @@ public class TestTwo {
     @Benchmark
     public void testRead() throws IOException {
         byte[] data = storage.read("key1".getBytes(), 0);
+    }
+
+    public static void test() throws Exception {
+        FileStorage storage = new FileStorage();
+        storage.init("temp");
+        long offset = 128;
+        byte[] data = longTobytes(offset);
+        byte[] buffer = "data".getBytes();
+        ByteBuffer buffer2 = ByteBuffer.allocate(8 + "data".getBytes().length);
+        buffer2.putLong(1923);
+        buffer2.put("data".getBytes());
+        buffer2.flip();
+        storage.write("key1".getBytes(), buffer2.array());
+        byte[] res = storage.read("key1".getBytes(), 0);
+        byte[] resNum = new byte[8];
+        for (int i = 0; i < 8; i++) {
+            resNum[i] = res[i];
+        }
+        System.out.println(bytesToLong(resNum));
+    }
+
+    private static byte[] mergeArrays(byte[] array1, byte[] array2) {
+        byte[] mergedArray = new byte[array1.length + array2.length];
+        System.arraycopy(array1, 0, mergedArray, 0, array1.length);
+        System.arraycopy(array2, 0, mergedArray, array1.length, array2.length);
+        return mergedArray;
     }
 }
