@@ -11,6 +11,7 @@ import java.nio.channels.CompletionHandler;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileStore;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
@@ -22,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import com.alibaba.lindorm.contest.common.MoreSupplizers;
+import com.alibaba.lindorm.contest.storage.FileStorage;
 import com.alibaba.lindorm.contest.util.RealWriteReq;
 
 /**
@@ -32,6 +34,8 @@ public final class AioCache {
 
     private LinkedBlockingQueue<List<RealWriteReq>> queue;
     private AsynchronousFileChannel fileChannel;
+
+    private FileStorage store;
 
     // key: vin, value: pos
     private Map<String, Set<Integer>> vinPosMap;
@@ -51,10 +55,14 @@ public final class AioCache {
         columnPosMap = new ConcurrentHashMap<>();
         //        taskMoreSupplizers.get().execute(this::flushFromQueue);
         try {
+
             Path channelPath =
                     Path.of(path.toString() + File.separator + path.toString() + "_" + System.currentTimeMillis());
+
             fileChannel = AsynchronousFileChannel.open(channelPath, StandardOpenOption.WRITE, StandardOpenOption.READ,
                     StandardOpenOption.CREATE);
+            FileStorage storage = new FileStorage();
+            storage.init(path.toString());
         } catch (Exception e) {
 
         }

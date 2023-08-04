@@ -3,14 +3,11 @@ package com.alibaba.lindorm.contest.storage;
 import static com.alibaba.lindorm.contest.common.Preconditions.checkFileState;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
-import java.nio.file.Path;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
