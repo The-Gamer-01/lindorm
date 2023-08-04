@@ -53,4 +53,8 @@ public class FileStorage implements FileManager {
     public void close() {
 
     }
+
+    public MappedByteBufferWrapper[] getMappedByteBufferWrappers() {
+        return mappedByteBufferWrappers;
+    }
 }

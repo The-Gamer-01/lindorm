@@ -53,4 +53,8 @@ public class MappedByteBufferWrapper {
         this.randomAccessFile.getChannel().read(buffer, offset);
         return buffer.array();
     }
+
+    public long getFilePosition() throws IOException {
+        return this.randomAccessFile.length();
+    }
 }

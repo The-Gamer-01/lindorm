@@ -9,21 +9,38 @@ package com.alibaba.lindorm.contest;
 
 
 import static com.alibaba.lindorm.contest.common.MoreRunnables.runOnceSilently;
+import static com.alibaba.lindorm.contest.common.NumberUtils.bytesToDouble;
+import static com.alibaba.lindorm.contest.common.NumberUtils.bytesToInt;
+import static com.alibaba.lindorm.contest.common.NumberUtils.doubleToBytes;
 import static com.alibaba.lindorm.contest.common.Preconditions.checkFileState;
+import static com.alibaba.lindorm.contest.common.TypeUtils.columnTypeValue;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.alibaba.lindorm.contest.common.MoreSupplizers;
+import com.alibaba.lindorm.contest.structs.ColumnValue;
+import com.alibaba.lindorm.contest.structs.ColumnValue.ColumnType;
+import com.alibaba.lindorm.contest.structs.ColumnValue.DoubleFloatColumn;
+import com.alibaba.lindorm.contest.structs.ColumnValue.IntegerColumn;
+import com.alibaba.lindorm.contest.structs.ColumnValue.StringColumn;
 import com.alibaba.lindorm.contest.structs.LatestQueryRequest;
 import com.alibaba.lindorm.contest.structs.Row;
 import com.alibaba.lindorm.contest.structs.Schema;
 import com.alibaba.lindorm.contest.structs.TimeRangeQueryRequest;
+import com.alibaba.lindorm.contest.structs.Vin;
 import com.alibaba.lindorm.contest.structs.WriteRequest;
+import com.alibaba.lindorm.contest.util.ColumnTs;
 import com.alibaba.lindorm.contest.util.RealWriteReq;
 
 public class TSDBEngineImpl extends TSDBEngine {
@@ -34,7 +51,11 @@ public class TSDBEngineImpl extends TSDBEngine {
 
     private static boolean isConnected = false;
 
-    private AioCache cache;
+//    private AioCache cache;
+//
+//    private MemoryBufferExample example;
+
+    private InfluxBuffer influxBuffer;
 
     /**
      * This constructor's function signature should not be modified.
@@ -58,7 +79,9 @@ public class TSDBEngineImpl extends TSDBEngine {
         }
         // todo 从文件加载数据构建索引
         isConnected = true;
-        cache = new AioCache(dataPath.toPath());
+//        cache = new AioCache(dataPath.toPath());
+//        influxBuffer = new MemoryBufferExample();
+        influxBuffer = new InfluxBuffer(dataPath.getPath());
     }
 
     @Override
@@ -76,7 +99,8 @@ public class TSDBEngineImpl extends TSDBEngine {
             return;
         }
         // 调试用
-        cache.flush();
+//        cache.flush();
+        influxBuffer.flush();
         runOnceSilently(() -> {
             // todo 强制刷盘 优雅停机
             isConnected = false;
@@ -86,12 +110,29 @@ public class TSDBEngineImpl extends TSDBEngine {
 
     @Override
     public void upsert(WriteRequest wReq) throws IOException {
-        cache.put(getRealWriteReq(wReq));
+//        cache.put(getRealWriteReq(wReq));
+        influxBuffer.put(wReq);
     }
 
     @Override
     public ArrayList<Row> executeLatestQuery(LatestQueryRequest pReadReq) throws IOException {
-        return null;
+        ArrayList<Row> rowList = new ArrayList<>();
+        Collection<Vin> vins = pReadReq.getVins();
+        Set<String> columns = pReadReq.getRequestedColumns();
+        vins.forEach(vin -> {
+            Map<String, ColumnValue> params = new HashMap<>();
+            long timestamp = 0;
+            for (String column : columns) {
+                String key = String.join("_", new String(vin.getVin()), column);
+                ColumnType type = influxBuffer.getType(key);
+                ColumnTs columnTs = influxBuffer.getLastColumnTs(key);
+                timestamp= columnTs.getTimestamp();
+                params.put(key, newColumnValue(type, columnTs));
+            }
+            Row row = new Row(vin, timestamp, params);
+            rowList.add(row);
+        });
+        return rowList;
     }
 
     @Override
@@ -99,8 +140,18 @@ public class TSDBEngineImpl extends TSDBEngine {
         return null;
     }
 
-    public AioCache getCache() {
-        return cache;
+    private ColumnValue newColumnValue(ColumnType type, ColumnTs columnTs) {
+        switch (type) {
+            case COLUMN_TYPE_STRING:
+                return new StringColumn(ByteBuffer.wrap(columnTs.getColumnValue()));
+            case COLUMN_TYPE_INTEGER:
+                return new IntegerColumn(bytesToInt(columnTs.getColumnValue()));
+            case COLUMN_TYPE_DOUBLE_FLOAT:
+                return new DoubleFloatColumn(bytesToDouble(columnTs.getColumnValue()));
+            default:
+                return null;
+        }
+
     }
 
     public static List<RealWriteReq> getRealWriteReq(WriteRequest wReq) {
