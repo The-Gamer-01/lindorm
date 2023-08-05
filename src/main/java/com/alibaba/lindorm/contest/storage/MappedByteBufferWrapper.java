@@ -10,6 +10,9 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.alibaba.lindorm.contest.common.Tuple;
+import com.alibaba.lindorm.contest.common.TwoTuple;
+
 /**
  * @author zhaozhenhang <zhaozhenhang@kuaishou.com>
  * Created on 2023-08-02
@@ -25,6 +28,8 @@ public class MappedByteBufferWrapper {
 
     private AtomicLong wrotePosition;
 
+    private String fileName;
+
     public void init(String path, int n) throws IOException {
         File dir = new File(path);
         if (!dir.exists()) {
@@ -35,6 +40,7 @@ public class MappedByteBufferWrapper {
             checkFileState(file.createNewFile(), "创建文件失败, path: " + path);
         }
         this.randomAccessFile = new RandomAccessFile(file, "rw");
+        this.fileName = file.getName();
         this.mappedByteBuffer = randomAccessFile.getChannel().map(MapMode.READ_WRITE, 0, 0);
         wrotePosition = new AtomicLong(randomAccessFile.length());
     }
@@ -54,7 +60,23 @@ public class MappedByteBufferWrapper {
         return buffer.array();
     }
 
+    public byte[] read(long offset, int size) throws IOException {
+        ByteBuffer buffer = ByteBuffer.allocate(size);
+        this.randomAccessFile.getChannel().read(buffer, offset);
+        return buffer.array();
+    }
+
+    public TwoTuple<MappedByteBuffer, Long> load() throws IOException {
+        long size = this.randomAccessFile.getChannel().size();
+        this.mappedByteBuffer = this.randomAccessFile.getChannel().map(MapMode.READ_ONLY, 0, size);
+        return Tuple.tuple(this.mappedByteBuffer, size);
+    }
+
     public long getFilePosition() throws IOException {
         return this.randomAccessFile.length();
+    }
+
+    public String getFileName() throws IOException {
+        return fileName;
     }
 }

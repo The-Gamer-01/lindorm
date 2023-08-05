@@ -82,6 +82,7 @@ public class TSDBEngineImpl extends TSDBEngine {
 //        cache = new AioCache(dataPath.toPath());
 //        influxBuffer = new MemoryBufferExample();
         influxBuffer = new InfluxBuffer(dataPath.getPath());
+        influxBuffer.load();
     }
 
     @Override
@@ -125,8 +126,13 @@ public class TSDBEngineImpl extends TSDBEngine {
             for (String column : columns) {
                 String key = String.join("_", new String(vin.getVin()), column);
                 ColumnType type = influxBuffer.getType(key);
-                ColumnTs columnTs = influxBuffer.getLastColumnTs(key);
-                timestamp= columnTs.getTimestamp();
+                ColumnTs columnTs = null;
+                try {
+                    columnTs = influxBuffer.getLastColumnTs(key);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                timestamp = columnTs.getTimestamp();
                 params.put(key, newColumnValue(type, columnTs));
             }
             Row row = new Row(vin, timestamp, params);

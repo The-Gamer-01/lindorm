@@ -6,11 +6,14 @@ import static com.alibaba.lindorm.contest.common.NumberUtils.longTobytes;
 import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileChannel.MapMode;
 import java.util.List;
 
 import org.openjdk.jmh.annotations.Benchmark;
@@ -24,6 +27,7 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import com.alibaba.lindorm.contest.index.IndexBlockEntry;
 import com.alibaba.lindorm.contest.storage.FileStorage;
 
 /**
@@ -44,7 +48,8 @@ public class TestTwo {
 //        new Runner(opt).run();
 //        System.out.println("value1".getBytes().length);
 
-        test();
+//        test3();
+        test3();
     }
 
     FileStorage storage = new FileStorage();
@@ -66,7 +71,7 @@ public class TestTwo {
 
     public static void test() throws Exception {
         FileStorage storage = new FileStorage();
-        storage.init("temp");
+        storage.init("temp2");
         long offset = 128;
         byte[] data = longTobytes(offset);
         byte[] buffer = "data".getBytes();
@@ -83,10 +88,57 @@ public class TestTwo {
         System.out.println(bytesToLong(resNum));
     }
 
-    private static byte[] mergeArrays(byte[] array1, byte[] array2) {
-        byte[] mergedArray = new byte[array1.length + array2.length];
-        System.arraycopy(array1, 0, mergedArray, 0, array1.length);
-        System.arraycopy(array2, 0, mergedArray, array1.length, array2.length);
-        return mergedArray;
+    public static void test2() throws IOException {
+        RandomAccessFile randomAccessFile = new RandomAccessFile(new File("test"), "rw");
+        String str = "5678912345678_col3";
+        ByteBuffer buffer =
+                ByteBuffer.allocate(str.getBytes().length + 4);
+        buffer.putInt(str.getBytes().length);
+        buffer.put(str.getBytes());
+        buffer.flip();
+        randomAccessFile.write(buffer.array());
+
+        long fileSize = randomAccessFile.getChannel().size();
+        MappedByteBuffer byteBuffer = randomAccessFile.getChannel().map(MapMode.READ_ONLY, 0, fileSize);
+        int keyLen = byteBuffer.getInt();
+
+        System.out.println("keyLen: " + keyLen);
+
+        // 读取key
+        byte[] data = new byte[keyLen];
+        byteBuffer.get(data, 0, keyLen);
+        System.out.println("key: " + new String(data));
+    }
+
+    public static void test3() throws IOException {
+        String path = "temp/196";
+        RandomAccessFile randomAccessFile = new RandomAccessFile(path, "rw");
+
+        long fileSize = randomAccessFile.getChannel().size();
+        MappedByteBuffer byteBuffer = randomAccessFile.getChannel().map(MapMode.READ_ONLY, 0, fileSize);
+        byteBuffer.position(0);
+        while (byteBuffer.position() != byteBuffer.limit()) {
+            // 读取keyLen
+            int keyLen = byteBuffer.getInt();
+            System.out.println("keyLen: " + keyLen);
+            System.out.println(byteBuffer.position());
+
+            // 读取key
+            byte[] data = new byte[keyLen];
+            byteBuffer.get(data, 0, keyLen);
+            System.out.println("key: " + new String(data));
+            // 读取minTs
+            long minTs = byteBuffer.getLong();
+            // 读取maxTs
+            long maxTs = byteBuffer.getLong();
+            // 读取 value的offset
+            long offset = byteBuffer.getLong();
+            int size = byteBuffer.getInt();
+            // 跳跃datablock字节
+
+            int valLen = byteBuffer.getInt();
+            int tsLen = size * 8;
+            byteBuffer.position(byteBuffer.position() + valLen + tsLen);
+        }
     }
 }

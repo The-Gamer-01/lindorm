@@ -44,12 +44,12 @@ public class TestOne {
         File dataDir = new File("temp");
         TSDBEngineImpl engine = new TSDBEngineImpl(dataDir);
         engine.connect();
-        String str = "12345678912345678";
-        ArrayList<Vin> vinList = new ArrayList<>();
-        vinList.add(new Vin(str.getBytes(StandardCharsets.UTF_8)));
-        Set<String> requestedColumns = new HashSet<>(Arrays.asList("col1", "col2", "col3"));
-        ArrayList<Row> resultSet = engine.executeLatestQuery(new LatestQueryRequest("test", vinList, requestedColumns));
-        System.out.println("resultSet: " + resultSet);
+//        String str = "12345678912345678";
+//        ArrayList<Vin> vinList = new ArrayList<>();
+//        vinList.add(new Vin(str.getBytes(StandardCharsets.UTF_8)));
+//        Set<String> requestedColumns = new HashSet<>(Arrays.asList("col1", "col2", "col3"));
+//        ArrayList<Row> resultSet = engine.executeLatestQuery(new LatestQueryRequest("test", vinList, requestedColumns));
+//        System.out.println("resultSet: " + resultSet);
     }
 
 }
