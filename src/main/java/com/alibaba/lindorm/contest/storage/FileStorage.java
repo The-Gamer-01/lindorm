@@ -50,6 +50,16 @@ public class FileStorage implements FileManager {
     }
 
     @Override
+    public byte[] read(byte[] key, long offset, int size) throws IOException {
+        int partitionKey = getPartition(key);
+        MappedByteBufferWrapper wrapper = mappedByteBufferWrappers[partitionKey];
+        if (wrapper == null) {
+            throw new RuntimeException("wrapper is nonnull");
+        }
+        return wrapper.read(offset, size);
+    }
+
+    @Override
     public void close() {
 
     }

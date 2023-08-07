@@ -12,6 +12,8 @@ public interface FileManager {
 
     byte[] read(byte[] key, long offset) throws IOException;
 
+    byte[] read(byte[] key, long offset, int size) throws IOException;
+
     void close();
 
     void init(String path) throws IOException;
