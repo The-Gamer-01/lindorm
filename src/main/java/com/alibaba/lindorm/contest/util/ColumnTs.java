@@ -6,7 +6,7 @@ import com.alibaba.lindorm.contest.structs.ColumnValue;
  * @author zhaozhenhang <zhaozhenhang@kuaishou.com>
  * Created on 2023-08-05
  */
-public class ColumnTs {
+public class ColumnTs implements Comparable<ColumnTs> {
 
     private long timestamp;
 
@@ -31,5 +31,10 @@ public class ColumnTs {
 
     public void setColumnValue(byte[] columnValue) {
         this.columnValue = columnValue;
+    }
+
+    @Override
+    public int compareTo(ColumnTs o) {
+        return (int) (o.getTimestamp() - this.timestamp);
     }
 }
