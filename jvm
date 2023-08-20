@@ -1,0 +1,4 @@
+-Xmx6g -Xms500m
+-Xmn500m
+-XX:+UseSerialGC
+--add-opens java.base/jdk.internal.misc=ALL-UNNAMED
